@@ -5,6 +5,10 @@
 
                  created by @qtsharp
 ************************************
+增加IP显示，DS18B20温度，AP客户端数
+量，客户端IP显示。
+					added by ITJesse
+************************************
 示例1：
     $sudo ./l602
     屏幕显示：
@@ -148,12 +152,75 @@ int show_temp(fd){
 	return 0;
 }
 
+int show_client_count(int fd)
+{
+	FILE *fp;
+	fp = popen("hostapd_cli all_sta", "r");
+
+	char mid;
+	int i = 0;
+	
+	lcdPosition (fd, 0, 0); lcdPuts (fd, "Client Info:");
+
+	while(!feof(fp))
+	{
+		mid = fgetc(fp);//从txt文本中读取一个字符赋值给mid
+		if(mid == '\n')  //如果这个字符为换行符
+			i++;                        
+	}
+	//printf("\n行數：\n",i);  
+	lcdPosition (fd, 0, 1);lcdPrintf (fd, "Count: %d", (i-1)/8) ;	
+	fclose(fp);
+
+	return 0;
+}
+
+int show_client_info(int fd)
+{
+	FILE *fp;
+	fp = fopen("/var/lib/misc/dnsmasq.leases","r");
+
+	char buf[200];
+	int i = 0;
+	char * buf2;
+
+	while(fgets(buf,sizeof(buf),fp) != NULL){
+		//printf("%s\n", buf);
+		cls(fd);
+
+		buf2 = strtok(buf, " ");
+		while(buf2 != NULL) 
+		{
+			//printf("%s\n", buf2);
+			i++;
+			if(i == 4)
+			{
+				lcdPosition (fd, 0, 0);lcdPrintf (fd, "%.16s", buf2);
+				//printf("%s\n", s);
+			}
+			if(i == 3)
+			{
+				lcdPosition (fd, 0, 1);lcdPrintf (fd, "%.16s", buf2);
+				//printf("%s\n", s);
+			}
+			buf2 = strtok(NULL, " ");
+			//sleep(1);
+		}
+		i = 0;
+		sleep(3);
+	}
+	fclose(fp);
+
+	return 0;
+}
+
 int cls(int fd)
 {
 	lcdPosition (fd, 0, 0) ;
 	lcdPuts (fd, "                ") ; //清空第一行
 	lcdPosition (fd, 0, 1) ;
 	lcdPuts (fd, "                ") ; //清空第二行
+	return 0;
 }
 
 int main (int args, char *argv[])
@@ -185,7 +252,14 @@ int main (int args, char *argv[])
 		cls(fd);
 
 		show_net_info(fd);
-        sleep(5);
+		sleep(5);
+		cls(fd);
+		
+		show_client_count(fd);
+		sleep(3);
+		cls(fd);
+		
+		show_client_info(fd);
 		cls(fd);
 		
 		show_temp(fd);
