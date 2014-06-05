@@ -5,8 +5,9 @@
 
                  created by @qtsharp
 ************************************
-增加IP显示，DS18B20温度，AP客户端数
-量，客户端IP显示。
+增加日期时间显示，运行时间显示，IP显
+示，DS18B20温度，AP客户端数量，客户
+端IP显示。
 					added by ITJesse
 ************************************
 示例1：
@@ -40,6 +41,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include <sys/types.h>
 #include <sys/fcntl.h>
@@ -56,6 +58,29 @@ const int D0 = 4;	//
 const int D1 = 12;	// 
 const int D2 = 13;	// 
 const int D3 = 6;	// 
+
+int show_date (int fd)
+{
+	struct tm *newtime;  
+	char tmpbuf[128];  
+	time_t timestamp; 
+	int start,now;
+
+	time(&timestamp);  
+	newtime=localtime(&timestamp); 
+	start = timestamp;
+
+	strftime(tmpbuf, 128, "%Y-%m-%d %a", newtime); 
+	lcdPosition (fd, 0, 0);lcdPrintf (fd, tmpbuf);
+	while(now - start < 5){
+		time(&timestamp);  
+		newtime=localtime(&timestamp);
+		now = timestamp;
+		strftime(tmpbuf, 128, "%H:%M:%S", newtime); 
+		lcdPosition (fd, 0, 1);lcdPrintf (fd, tmpbuf);
+		sleep(1);
+	}
+}
 
 int show_sys_info (int fd)
 {
@@ -81,6 +106,31 @@ int show_sys_info (int fd)
 	lcdPosition (fd, 7, 1);
 	lcdPrintf (fd, "%3d/%3dMB", atoi(Free),atoi(Total)) ;
 	fclose(fp);
+}
+
+int show_run_time (int fd)
+{
+	lcdPosition (fd, 0, 0); lcdPuts (fd, "Already Run:");
+	FILE *fp;
+	char buf[50];
+	char *buf2;
+	int timestamp;
+	
+	fp=fopen("/proc/uptime","r"); //读取内存信息
+	
+	fgets(buf,sizeof(buf)-1,fp);
+	
+	buf2 = strtok(buf, " ");
+	timestamp = atoi(buf2);
+	
+	int day = timestamp / 86400;
+	int hour = (timestamp % 86400) / 3600;
+	int minute = (timestamp % 3600) / 60;
+	int second = timestamp % 60;
+	
+	lcdPosition (fd, 0, 1); lcdPrintf (fd, "%dD %dh %dm %ds", day, hour, minute, second);
+	fclose(fp);
+	return timestamp;
 }
 
 int show_net_info (int fd)
@@ -245,10 +295,21 @@ int main (int args, char *argv[])
         lcdPosition (fd, 0, 0) ; lcdPuts (fd, argv[1]) ; //命令行参数显示至第一行
     } 
     
+	int start,now;
     while(1)
     {
+		show_date(fd);
+		cls(fd);
+		
 		show_sys_info(fd);
 		sleep(5);
+		cls(fd);
+		
+		start = show_run_time(fd);
+		while(now - start < 5){
+			now = show_run_time(fd);
+			sleep(1);
+		}
 		cls(fd);
 
 		show_net_info(fd);
